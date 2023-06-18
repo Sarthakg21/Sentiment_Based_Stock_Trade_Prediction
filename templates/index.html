@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Learning</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            font-family: 'Montserrat';
+        }
+    </style>
+</head>
+<body>
+    <div class="fixed top-0 right-0 h-screen w-screen z-50 flex flex-col justify-center items-center bg-white" id="loading-screen">
+        <div class="animate-spin rounded-full mb-5 h-32 w-32 border-t-2 border-b-2 border-gray-900"></div> 
+        <h1 style="font-size: 2.5rem;">Please wait while we process your file...</h1>
+    </div>
+    <section class="flex flex-col justify-center items-center h-screen">
+        <h1 class="text-4xl font-medium">Machine Learning Model</h1>
+        <span class="mt-2 text-3xl">Stock Prediction</span>
+
+        <form class="flex flex-col items-center justify-center" style="margin-top: 4rem;"
+            enctype="multipart/form-data" id="csvUploadForm" onsubmit="uploadData(event)"> 
+            <input type="file" name="file" id="csvDataFile" accept=".csv" required>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" style="border: 1px solid black;" type="submit">Train my model!</button>
+        </form>
+    </section>
+    <section id="graphs-container">
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>
