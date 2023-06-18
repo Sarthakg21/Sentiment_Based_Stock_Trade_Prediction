@@ -1,6 +1,6 @@
 flask
 flask_cors
-numpy
+numpy==1.23.3
 tensorflow
 keras
 pandas
@@ -8,3 +8,4 @@ matplotlib
 scikit-learn
 seaborn
 pmdarima
+urllib3==1.26.7
