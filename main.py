@@ -5,6 +5,8 @@ from keras.models import Sequential
 from keras.layers import LSTM,Conv1D,MaxPooling1D
 from keras.layers import Dense, Dropout
 import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
@@ -12,13 +14,15 @@ from sklearn.metrics import mean_squared_error
 import seaborn as sns
 from pmdarima import auto_arima
 
-import os
-from flask import Flask, request, jsonify, render_template
-from werkzeug.utils import secure_filename
+import os, threading, queue
+from flask import Flask, request, jsonify, render_template, current_app
+from werkzeug.local import LocalProxy
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, origins="*")
+
+# current_app = LocalProxy(lambda: app._get_current_object())
 
 seed = 42
 
@@ -60,21 +64,19 @@ def plot_predictions_with_dates(type,twitter,dates,y_actual_lstm,y_pred_lstm):
         plt.savefig(image_name)
         
         error=mean_squared_error(y_actual_lstm[:,i], y_pred_lstm[:, i])
-        print(f'Mean square error for {predicted_feature} ={error}')
-    print('Total mean square error', mean_squared_error(y_actual_lstm, y_pred_lstm))
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-def generateGraph():
+def generateGraph(dataset):
     BASE_URL = './static/graphs/{}'
 
     fig = plt.gcf()
     fig.set_size_inches(16, 9)  # Set the width and height in inches
     fig.set_dpi(300)  # Set the DPI resolution
 
-    df = pd.read_csv('./data/data.csv')
+    df = pd.read_csv(f'./data/{dataset}.csv')
     df['date'] = pd.to_datetime(df['date'])
 
     sns.lineplot(x=df["date"], y=df["Adj Close"])
@@ -82,7 +84,7 @@ def generateGraph():
     df['sentiment_analysis'] = df['sentiment_analysis'].apply(lambda x: 'pos' if x > 0 else 'nue' if x == 0 else 'neg')
     sns.scatterplot(x=df["date"], y=df['Adj Close'], hue=df['sentiment_analysis'], palette=['y', 'r', 'g'])
     plt.xticks(rotation=45)
-    plt.title("Stock market of Netflix from Jan-2018 to Jul-2022", fontsize=16)
+    plt.title("Sentiments of Stock ", fontsize=16)
 
     name = 'fig1.png'
     plt.savefig(BASE_URL.format(name), dpi=fig.get_dpi())
@@ -318,28 +320,66 @@ def generateGraph():
     name = 'arima_testing_close_w_twitter.png'
     plt.savefig(BASE_URL.format(name), dpi=fig.get_dpi())
 
+    us_bd = CustomBusinessDay(calendar=USFederalHolidayCalendar())
+    n_past_dates = 5
+    n_days_for_prediction = 5
+
+    predict_period_dates = pd.date_range(list(df_for_training.index)[-n_past_dates], periods=n_days_for_prediction,
+                                        freq=us_bd).tolist()
+
+    features= ['Open','High', 'Low','Close','Volume','Adj Close','P_mean']
+    df_for_training.iloc[-n_past:,:].to_numpy().reshape(1,n_past,len(features)).shape
+
+    x_forcast=df_for_training.iloc[-n_past-1:-1,:]
+    x_forcast=scaler.transform(x_forcast).reshape(1,n_past,len(features))
+    prediction = cnn_lstm_model_twitter.predict(x_forcast) #shape = (n, 1) where n is the n_days_for_prediction
+    prediction=prediction.reshape(prediction.shape[0],prediction.shape[2])
+    #Perform inverse transformation to rescale back to original range
+    prediction=scaler_for_inference.inverse_transform(prediction)
+
+    # Convert timestamp to date
+    forecast_dates = []
+    for time_i in predict_period_dates:
+        forecast_dates.append(time_i.date())
+
+    print(f'Date = {forecast_dates[-2]}, Prediction open {prediction[0][0]}')
+    print(f'Date = {forecast_dates[-2]}, Prediction Adjusted close {prediction[0][1]}')
+
     folder_path = './static/graphs'
     file_names = os.listdir(folder_path)
     png_file_names = [file for file in file_names if file.endswith('.png')]
     sorted_png_file_names = sorted(png_file_names, key=lambda x: os.path.getctime(os.path.join(folder_path, x)))
 
-    return jsonify({"success": True, "graphs": sorted_png_file_names})
+    return jsonify({"success": True, "graphs": sorted_png_file_names, "prices": {
+        "date": forecast_dates[-2],
+        "open":  float(prediction[0][0]),
+        "adj_close": float(prediction[0][1])
+    }})
 
-@app.route('/upload', methods=['POST'])
+def executeMLInBG(modelName, result_queue):
+    with app.app_context():
+        result = generateGraph(modelName)
+
+        result_queue.put(result)
+
+@app.route('/upload', methods=['GET'])
 def upload_csv():
-    if 'file' not in request.files:
-        return jsonify(message="Got no file bruh :(")
+    modelName = request.args.get('modelName')
 
-    data_file = request.files['file']
-    if data_file.filename == '':
-        return 'No file selected'
+    # Create a queue to pass the result from generateGraph
+    result_queue = queue.Queue()
 
-    filename = secure_filename(data_file.filename)
-    file_path = './data/' + filename
+    # Create a thread to execute the generateGraph function
+    thread = threading.Thread(target=executeMLInBG, args=(modelName, result_queue,))
+    thread.start()
+    thread.join()  # Wait for the thread to complete
 
-    data_file.save(file_path)
+    # Retrieve the result from the queue
+    result = result_queue.get()
 
-    return generateGraph()
+    # Return the data obtained from generateGraph
+    with current_app.app_context():
+        return result
 
 if __name__ == '__main__':
     app.run(debug=True)

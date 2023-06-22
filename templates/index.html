@@ -17,6 +17,10 @@
             margin: 0;
             font-family: 'Montserrat';
         }
+
+        button {
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
@@ -26,13 +30,18 @@
     </div>
     <section class="flex flex-col justify-center items-center h-screen">
         <h1 class="text-4xl font-medium">Machine Learning Model</h1>
-        <span class="mt-2 text-3xl">Stock Prediction</span>
+        <span class="mt-2 text-3xl">Select model to implement the stock prediction.</span>
 
-        <form class="flex flex-col items-center justify-center" style="margin-top: 4rem;"
-            enctype="multipart/form-data" id="csvUploadForm" onsubmit="uploadData(event)"> 
-            <input type="file" name="file" id="csvDataFile" accept=".csv" required>
-            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" style="border: 1px solid black;" type="submit">Train my model!</button>
-        </form>
+        <div class="datasets">
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="ASIANPAINT">Asian Paints</button>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="BAJFINANCE">Bajaj Finance</button>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="INFY">INFY</button>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="Netflix">Netflix</button>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="RELIANCE">Reliance</button>
+            <button class="px-4 py-2 mt-8 hover:bg-black hover:text-white" data-name="TCS">TCS</button>
+        </div>
+
+        <h3 class="font-bold mt-5">Date : <span id="date"></span> <br> Predicted Open Price : <span id="price-open"></span> <br> Predicted Adjusted Close Price : <span id="price-close"></span></h3>
     </section>
     <section id="graphs-container">
     </section>
